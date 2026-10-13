@@ -60,6 +60,7 @@ h1 em, h2 em { color: #c4d1b5; font-weight: 500; }
 .filters { display: flex; gap: 12px; }
 .filter-control { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
 .filter-control select { padding: 10px 25px 10px 11px; border: 1px solid var(--line); border-radius: 3px; background: #fff; color: var(--ink); font-size: 11px; }
+.clear-search-button { min-height: 37px; padding: 0 10px; color: var(--green-dark); font-size: 11px; text-decoration: underline; }
 .hotel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 22px; }
 .hotel-card { min-width: 0; cursor: pointer; }
 .hotel-photo-wrap { position: relative; overflow: hidden; height: clamp(200px, 22vw, 284px); background: var(--sage); }
@@ -74,6 +75,7 @@ h1 em, h2 em { color: #c4d1b5; font-weight: 500; }
 .hotel-price small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; font-weight: 400; }
 .hotel-amenities { display: flex; gap: 7px; margin: 12px 0 0; color: var(--muted); font-size: 10px; }
 .hotel-amenities span + span::before { content: "·"; margin-right: 7px; }
+.hotel-card-action { min-height: 35px; margin-top: 15px; padding: 0 12px; font-size: 10px; }
 .quote-section { min-height: 365px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; background: #e9ece3; text-align: center; }
 .quote-mark { height: 38px; color: var(--green); font-family: var(--serif); font-size: 66px; line-height: 1; }
 .quote-section blockquote { margin: 18px 0 20px; font-size: clamp(31px, 4vw, 45px); line-height: 1.22; }
@@ -177,7 +179,7 @@ h1 em, h2 em { color: #c4d1b5; font-weight: 500; }
   .stays-section { padding: 0 19px 70px; }
   .section-heading { display: block; }
   .section-heading h2 { font-size: 34px; }
-  .filters { justify-content: flex-start; margin-top: 18px; }
+  .filters { flex-wrap: wrap; justify-content: flex-start; margin-top: 18px; }
   .hotel-grid { grid-template-columns: 1fr; gap: 26px; }
   .hotel-photo-wrap { height: 260px; }
   .quote-section { min-height: 300px; }

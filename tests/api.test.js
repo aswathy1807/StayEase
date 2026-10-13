@@ -10,6 +10,7 @@ const Hotel = require('../server/models/Hotel');
 const Room = require('../server/models/Room');
 const Booking = require('../server/models/Booking');
 const RoomNight = require('../server/models/RoomNight');
+const { seed, sampleHotels } = require('../server/seed');
 
 const config = {
   PORT: 3000,
@@ -121,6 +122,53 @@ test('serves the booking UI and restricts hotel management to administrators', a
   assert.equal(createdRoom.status, 201);
   const updatedRoom = await admin.patch(`/api/rooms/${createdRoom.body.room._id}`).send({ pricePerNight: 195 });
   assert.equal(updatedRoom.body.room.pricePerNight, 195);
+});
+
+test('seeds ten available demo hotels idempotently and searches by dates and destination', async () => {
+  assert.equal(sampleHotels.length, 10);
+  await seed({ config, connect: false, log: false });
+  const firstHotelCount = await Hotel.countDocuments();
+  const firstRoomCount = await Room.countDocuments();
+  await seed({ config, connect: false, log: false });
+  assert.equal(await Hotel.countDocuments(), firstHotelCount);
+  assert.equal(await Room.countDocuments(), firstRoomCount);
+  assert.equal(firstHotelCount, 11);
+  assert.equal(firstRoomCount, 21);
+  assert.equal(await RoomNight.countDocuments(), 0);
+
+  const dateSearch = await request(app).get('/api/hotels').query({
+    destination: 'Italy',
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 2
+  });
+  assert.equal(dateSearch.status, 200);
+  assert.equal(dateSearch.body.hotels.length, 1);
+  assert.equal(dateSearch.body.hotels[0].name, 'Villa Bellariva');
+
+  const featuredSearch = await request(app).get('/api/hotels').query({
+    featuredOnly: true,
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 2
+  });
+  assert.equal(featuredSearch.status, 200);
+  assert.equal(featuredSearch.body.hotels.length, 5);
+});
+
+test('price range returns hotels with matching room rates', async () => {
+  await Room.create({
+    hotel: hotel._id,
+    name: 'Premium Garden Suite',
+    capacity: 2,
+    pricePerNight: 275,
+    quantity: 1
+  });
+  const response = await request(app).get('/api/hotels').query({ minPrice: 200, maxPrice: 300 });
+  assert.equal(response.status, 200);
+  const match = response.body.hotels.find((item) => item._id === hotel._id.toString());
+  assert.ok(match);
+  assert.equal(match.startingPrice, 275);
 });
 
 test('hotel search filters destinations and availability changes with reservations', async () => {

@@ -1,6 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const state = { user: null, search: {}, hotels: [], selectedHotel: null, authMode: 'login' };
+const state = { user: null, search: {}, hotels: [], selectedHotel: null, authMode: 'login', featuredOnly: true };
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -79,6 +79,7 @@ function hotelQuery(extra = {}) {
   if (state.search.checkIn) query.set('checkIn', state.search.checkIn);
   if (state.search.checkOut) query.set('checkOut', state.search.checkOut);
   if (state.search.guests) query.set('guests', state.search.guests);
+  if (state.featuredOnly) query.set('featuredOnly', 'true');
   const maxPrice = $('#max-price').value;
   const minRating = $('#min-rating').value;
   if (maxPrice) query.set('maxPrice', maxPrice);
@@ -104,11 +105,12 @@ async function loadHotels() {
 function renderHotels() {
   const grid = $('#hotel-grid');
   if (!state.hotels.length) {
-    grid.innerHTML = '<div class="state-card"><p>No stays match those dates and filters. Try a nearby destination or different dates.</p></div>';
+    grid.innerHTML = '<div class="state-card"><p>No stays match those dates and filters. Try another destination or clear your search.</p><button class="button button-dark clear-search-results" type="button">Clear search</button></div>';
+    $('.clear-search-results', grid).addEventListener('click', clearSearch);
     return;
   }
   grid.innerHTML = state.hotels.map((hotel) => `
-    <article class="hotel-card" tabindex="0" role="button" aria-label="View ${escapeHtml(hotel.name)}" data-hotel="${escapeHtml(hotel._id)}">
+    <article class="hotel-card" data-hotel="${escapeHtml(hotel._id)}">
       <div class="hotel-photo-wrap">
         <img class="hotel-photo" src="${escapeHtml(hotel.image)}" alt="${escapeHtml(hotel.name)}" loading="lazy">
         ${hotel.featured ? '<span class="photo-tag">StayEase pick</span>' : ''}
@@ -119,17 +121,16 @@ function renderHotels() {
           <div class="hotel-location">${escapeHtml(hotel.location)}, ${escapeHtml(hotel.country)}</div>
           <h3 class="hotel-name">${escapeHtml(hotel.name)}</h3>
           <div class="hotel-amenities">${(hotel.amenities || []).slice(0, 3).map((amenity) => `<span>${escapeHtml(amenity)}</span>`).join('')}</div>
+          <button class="button button-dark hotel-card-action" type="button">View details / select room</button>
         </div>
         <div class="hotel-price">${formatMoney(hotel.startingPrice)}<small>per night</small></div>
       </div>
     </article>`).join('');
   $$('.hotel-card', grid).forEach((card) => {
     card.addEventListener('click', () => openHotel(card.dataset.hotel));
-    card.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openHotel(card.dataset.hotel);
-      }
+    $('.hotel-card-action', card).addEventListener('click', (event) => {
+      event.stopPropagation();
+      openHotel(card.dataset.hotel);
     });
   });
 }
@@ -142,6 +143,7 @@ async function openHotel(hotelId) {
     const params = new URLSearchParams();
     if (state.search.checkIn) params.set('checkIn', state.search.checkIn);
     if (state.search.checkOut) params.set('checkOut', state.search.checkOut);
+    if (state.search.guests) params.set('guests', state.search.guests);
     const { hotel, rooms } = await api(`/hotels/${encodeURIComponent(hotelId)}?${params}`);
     state.selectedHotel = hotel;
     const roomCards = rooms.map((room) => {
@@ -441,6 +443,7 @@ $('#search-form').addEventListener('submit', (event) => {
     return;
   }
   state.search = search;
+  state.featuredOnly = false;
   loadHotels();
   $('#stays').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
@@ -453,6 +456,7 @@ $('#search-form').elements.checkIn.addEventListener('change', (event) => {
 });
 $('#max-price').addEventListener('change', loadHotels);
 $('#min-rating').addEventListener('change', loadHotels);
+$('#clear-search').addEventListener('click', clearSearch);
 $('#auth-nav').addEventListener('click', () => openAuth('login'));
 $('#logout-nav').addEventListener('click', logout);
 $('#dashboard-nav').addEventListener('click', openDashboard);
@@ -463,3 +467,13 @@ $$('.auth-tabs button').forEach((button) => button.addEventListener('click', () 
 setDefaultDates();
 state.search = collectSearch();
 refreshSession().finally(loadHotels);
+
+function clearSearch() {
+  $('#search-form').reset();
+  $('#max-price').value = '';
+  $('#min-rating').value = '';
+  setDefaultDates();
+  state.search = collectSearch();
+  state.featuredOnly = true;
+  loadHotels();
+}

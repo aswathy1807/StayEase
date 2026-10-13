@@ -1,9 +1,11 @@
 require('dotenv').config();
 const { loadConfig } = require('./config');
 const { connectDatabase } = require('./db');
+const mongoose = require('mongoose');
 const User = require('./models/User');
 const Hotel = require('./models/Hotel');
 const Room = require('./models/Room');
+const RoomNight = require('./models/RoomNight');
 
 const sampleHotels = [
   {
@@ -89,50 +91,120 @@ const sampleHotels = [
       { name: 'Nordic Double', description: 'Minimal, warm and perfectly placed for exploring.', capacity: 2, pricePerNight: 205, quantity: 9, amenities: ['Queen bed', 'Workspace'] },
       { name: 'Northline Loft', description: 'A bright loft with a little extra room to settle in.', capacity: 3, pricePerNight: 295, quantity: 3, amenities: ['King bed', 'Sofa bed', 'Workspace'] }
     ]
+  },
+  {
+    name: 'Villa Bellariva',
+    location: 'Amalfi Coast',
+    country: 'Italy',
+    description: 'A restored coastal villa with lemon-garden terraces, handcrafted interiors and easy access to the villages along the shore.',
+    image: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1400&q=85',
+    rating: 4.8,
+    amenities: ['Sea view', 'Garden', 'Breakfast', 'Pool'],
+    featured: true,
+    rooms: [
+      { name: 'Lemon Garden Double', description: 'A bright room opening onto the villa gardens.', capacity: 2, pricePerNight: 295, quantity: 5, amenities: ['Queen bed', 'Garden view', 'Rain shower'] },
+      { name: 'Bellariva Family Suite', description: 'A relaxed suite with a sitting area and coastal balcony.', capacity: 4, pricePerNight: 460, quantity: 2, amenities: ['King bed', 'Sofa bed', 'Sea view'] }
+    ]
+  },
+  {
+    name: 'Juniper & Stone',
+    location: 'New York',
+    country: 'United States',
+    description: 'A calm, characterful Manhattan address with neighborhood coffee, considered rooms and the city just outside the door.',
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=85',
+    rating: 4.6,
+    amenities: ['Restaurant', 'Gym', 'Concierge', 'Free Wi-Fi'],
+    featured: false,
+    rooms: [
+      { name: 'City Queen', description: 'A thoughtfully planned room above the lively streets.', capacity: 2, pricePerNight: 225, quantity: 12, amenities: ['Queen bed', 'Workspace', 'City view'] },
+      { name: 'Juniper Studio Suite', description: 'A larger studio with room to relax between city days.', capacity: 3, pricePerNight: 345, quantity: 4, amenities: ['King bed', 'Sofa bed', 'Workspace'] }
+    ]
+  },
+  {
+    name: 'Riad Safran',
+    location: 'Marrakech',
+    country: 'Morocco',
+    description: 'A welcoming riad tucked into the medina, centered around a leafy courtyard and a rooftop made for golden-hour tea.',
+    image: 'https://images.unsplash.com/photo-1539020140153-e479b8c22e70?auto=format&fit=crop&w=1400&q=85',
+    rating: 4.9,
+    amenities: ['Courtyard pool', 'Rooftop', 'Hammam', 'Breakfast'],
+    featured: true,
+    rooms: [
+      { name: 'Courtyard Double', description: 'A cool, quiet retreat overlooking the central courtyard.', capacity: 2, pricePerNight: 155, quantity: 7, amenities: ['Queen bed', 'Courtyard view', 'Air conditioning'] },
+      { name: 'Atlas Family Suite', description: 'A generous suite with a separate sitting room.', capacity: 4, pricePerNight: 245, quantity: 3, amenities: ['King bed', 'Sofa bed', 'Private lounge'] }
+    ]
+  },
+  {
+    name: 'Pineglass Lodge',
+    location: 'Banff',
+    country: 'Canada',
+    description: 'A warm mountain lodge close to alpine trails, with fireside evenings, crisp air and wide-open views of the Rockies.',
+    image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1400&q=85',
+    rating: 4.7,
+    amenities: ['Mountain view', 'Hot tub', 'Restaurant', 'Free parking'],
+    featured: false,
+    rooms: [
+      { name: 'Spruce King Room', description: 'A restful room with a view toward the surrounding pines.', capacity: 2, pricePerNight: 210, quantity: 8, amenities: ['King bed', 'Mountain view', 'Soaking tub'] },
+      { name: 'Alpine Family Loft', description: 'A spacious loft for a family mountain escape.', capacity: 5, pricePerNight: 365, quantity: 3, amenities: ['King bed', 'Bunk beds', 'Living area'] }
+    ]
   }
 ];
 
-async function seed() {
-  const config = loadConfig();
-  await connectDatabase(config.MONGODB_URI);
-  for (const item of sampleHotels) {
-    const { rooms, ...hotelData } = item;
-    const hotel = await Hotel.findOneAndUpdate(
-      { name: hotelData.name, location: hotelData.location },
-      { $set: hotelData },
-      { new: true, upsert: true, runValidators: true }
-    );
-    for (const roomData of rooms) {
-      await Room.findOneAndUpdate(
-        { hotel: hotel._id, name: roomData.name },
-        { $set: roomData },
-        { upsert: true, runValidators: true }
-      );
-    }
-  }
-  if (config.ADMIN_EMAIL && config.ADMIN_PASSWORD) {
-    const existing = await User.findOne({ email: config.ADMIN_EMAIL.toLowerCase() });
-    if (!existing) {
-      await User.create({
-        name: 'StayEase Admin',
-        email: config.ADMIN_EMAIL.toLowerCase(),
-        passwordHash: await User.hashPassword(config.ADMIN_PASSWORD),
-        role: 'admin'
-      });
-    } else if (existing.role !== 'admin') {
-      existing.role = 'admin';
-      await existing.save();
-    }
-  } else if (config.ADMIN_EMAIL || config.ADMIN_PASSWORD) {
+async function seed({ config = loadConfig(), connect = true, log = true } = {}) {
+  if (Boolean(config.ADMIN_EMAIL) !== Boolean(config.ADMIN_PASSWORD)) {
     throw new Error('Set both ADMIN_EMAIL and ADMIN_PASSWORD to create an administrator');
   }
-  console.log(`Seeded ${sampleHotels.length} sample hotels${config.ADMIN_EMAIL ? ' and administrator account' : ''}.`);
-  process.exitCode = 0;
-  await require('mongoose').disconnect();
+  if (connect) await connectDatabase(config.MONGODB_URI);
+  try {
+    await Promise.all([RoomNight.init(), User.init()]);
+    for (const item of sampleHotels) {
+      const { rooms, ...hotelData } = item;
+      const hotel = await Hotel.findOneAndUpdate(
+        { name: hotelData.name, location: hotelData.location },
+        { $set: hotelData },
+        { new: true, upsert: true, runValidators: true }
+      );
+      for (const roomData of rooms) {
+        await Room.findOneAndUpdate(
+          { hotel: hotel._id, name: roomData.name },
+          { $set: roomData },
+          { upsert: true, runValidators: true }
+        );
+      }
+    }
+    if (config.ADMIN_EMAIL && config.ADMIN_PASSWORD) {
+      const email = config.ADMIN_EMAIL.toLowerCase();
+      const existing = await User.findOne({ email });
+      if (!existing) {
+        await User.create({
+          name: 'StayEase Admin',
+          email,
+          passwordHash: await User.hashPassword(config.ADMIN_PASSWORD),
+          role: 'admin'
+        });
+      } else if (existing.role !== 'admin') {
+        existing.role = 'admin';
+        await existing.save();
+      }
+    }
+    if (log) console.log(`Seeded ${sampleHotels.length} sample hotels and their rooms.`);
+  } finally {
+    if (connect && mongoose.connection.readyState !== 0) await mongoose.disconnect();
+  }
 }
 
-seed().catch(async (error) => {
-  console.error('Unable to seed StayEase:', error);
-  await require('mongoose').disconnect();
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  seed().catch(async (error) => {
+    console.error('Unable to seed StayEase:', error);
+    if (mongoose.connection.readyState !== 0) {
+      try {
+        await mongoose.disconnect();
+      } catch (disconnectError) {
+        console.error('Unable to close MongoDB connection:', disconnectError);
+      }
+    }
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { sampleHotels, seed };

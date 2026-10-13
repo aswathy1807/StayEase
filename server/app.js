@@ -110,14 +110,26 @@ function makeRouter(config) {
     const query = {};
     if (req.query.destination) {
       const destination = z.string().trim().min(1).max(120).parse(req.query.destination);
-      query.location = { $regex: escapeRegex(destination), $options: 'i' };
+      const destinationPattern = { $regex: escapeRegex(destination), $options: 'i' };
+      query.$or = [
+        { location: destinationPattern },
+        { country: destinationPattern },
+        { name: destinationPattern }
+      ];
     }
-    if (req.query.minRating) query.rating = { $gte: z.coerce.number().min(0).max(5).parse(req.query.minRating) };
+    if (req.query.minRating !== undefined) query.rating = { $gte: z.coerce.number().min(0).max(5).parse(req.query.minRating) };
+    if (req.query.featuredOnly !== undefined) {
+      const featuredOnly = z.enum(['true', 'false']).parse(req.query.featuredOnly);
+      if (featuredOnly === 'true') query.featured = true;
+    }
     let hotels = await Hotel.find(query).sort({ featured: -1, rating: -1 }).lean();
     const rooms = await Room.find({ hotel: { $in: hotels.map((hotel) => hotel._id) } }).lean();
     const guests = req.query.guests === undefined ? null : z.coerce.number().int().min(1).max(20).parse(req.query.guests);
-    const minPrice = req.query.minPrice === undefined ? null : z.coerce.number().min(0).parse(req.query.minPrice);
-    const maxPrice = req.query.maxPrice === undefined ? null : z.coerce.number().min(0).parse(req.query.maxPrice);
+    const minPrice = req.query.minPrice === undefined ? null : z.coerce.number().min(0).max(1000000).parse(req.query.minPrice);
+    const maxPrice = req.query.maxPrice === undefined ? null : z.coerce.number().min(0).max(1000000).parse(req.query.maxPrice);
+    if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+      throw Object.assign(new Error('Minimum price cannot exceed maximum price'), { status: 400 });
+    }
     let stay = null;
     if (req.query.checkIn || req.query.checkOut) {
       if (!req.query.checkIn || !req.query.checkOut) throw Object.assign(new Error('Both check-in and check-out dates are required'), { status: 400 });
@@ -127,6 +139,8 @@ function makeRouter(config) {
     for (const hotel of hotels) {
       let hotelRooms = rooms.filter((room) => room.hotel.toString() === hotel._id.toString());
       if (guests) hotelRooms = hotelRooms.filter((room) => room.capacity >= guests);
+      if (minPrice !== null) hotelRooms = hotelRooms.filter((room) => room.pricePerNight >= minPrice);
+      if (maxPrice !== null) hotelRooms = hotelRooms.filter((room) => room.pricePerNight <= maxPrice);
       if (stay) {
         const checks = await Promise.all(hotelRooms.map(async (room) => ({
           room,
@@ -137,7 +151,6 @@ function makeRouter(config) {
       const prices = hotelRooms.map((room) => room.pricePerNight);
       if (!prices.length) continue;
       const startingPrice = Math.min(...prices);
-      if ((minPrice !== null && startingPrice < minPrice) || (maxPrice !== null && startingPrice > maxPrice)) continue;
       result.push({ ...hotel, startingPrice, availableRoomCount: hotelRooms.length });
     }
     res.json({ hotels: result });
@@ -148,6 +161,7 @@ function makeRouter(config) {
     if (!hotel) return res.status(404).json({ error: 'Hotel not found' });
     const rooms = await Room.find({ hotel: hotel._id }).sort({ pricePerNight: 1 }).lean();
     const datesProvided = req.query.checkIn || req.query.checkOut;
+    const guests = req.query.guests === undefined ? null : z.coerce.number().int().min(1).max(20).parse(req.query.guests);
     let stay = null;
     if (datesProvided) {
       if (!req.query.checkIn || !req.query.checkOut) throw Object.assign(new Error('Both check-in and check-out dates are required'), { status: 400 });
@@ -155,7 +169,8 @@ function makeRouter(config) {
     }
     const result = await Promise.all(rooms.map(async (room) => ({
       ...room,
-      available: stay ? await isRoomAvailable(room, stay.checkIn, stay.checkOut) : true
+      available: (guests === null || room.capacity >= guests)
+        && (stay ? await isRoomAvailable(room, stay.checkIn, stay.checkOut) : true)
     })));
     return res.json({ hotel, rooms: result });
   }));

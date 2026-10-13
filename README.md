@@ -11,7 +11,7 @@ StayEase is a full-stack hotel discovery and booking demo. The browser UI is ser
 
 1. Create a MongoDB database. For local development, start MongoDB and use `mongodb://127.0.0.1:27017/stayease`. For Atlas, create a database user, allow your development IP in Network Access, and copy the connection string.
 2. Copy `.env.example` to `.env` and set `MONGODB_URI` and a unique `JWT_SECRET` of at least 32 characters. Keep `.env` private; it is ignored by Git.
-3. Install dependencies and load the sample hotels and rooms:
+3. Install dependencies and load ten sample hotels and their rooms across ten destinations:
 
    ```sh
    npm install
@@ -48,7 +48,7 @@ For production, use HTTPS, set `NODE_ENV=production`, use a high-entropy secret 
 | --- | --- |
 | `npm run dev` | Start with Node's built-in watch mode |
 | `npm start` | Start the server |
-| `npm run seed` | Upsert sample hotel/room data and optionally configure an administrator |
+| `npm run seed` | Idempotently upsert ten sample hotels/rooms and optionally configure an administrator |
 | `npm test` | Run API integration tests against an ephemeral MongoDB server |
 | `npm run check` | Run JavaScript syntax checks |
 
@@ -56,7 +56,7 @@ The integration tests use `mongodb-memory-server`; its first run may need to dow
 
 ## What is included
 
-- Search by destination, dates, guest capacity, maximum nightly price and minimum rating.
+- Search by hotel, destination or country, dates, guest capacity, price range and minimum rating; the initial page shows featured stays and Clear search resets the filters.
 - Hotel details, amenities, room capacities, rates and live room availability.
 - Registration, login and logout; passwords are bcrypt-hashed and session tokens are HttpOnly cookies.
 - Server-priced reservations and a dashboard for upcoming, completed and cancelled trips.
@@ -78,8 +78,8 @@ All request and response bodies use JSON. Authentication uses the `stayease_toke
 | `POST` | `/api/auth/login` | Public | Sign in `{ email, password }` |
 | `POST` | `/api/auth/logout` | Public | Clear the session cookie |
 | `GET` | `/api/auth/me` | Signed in | Current account |
-| `GET` | `/api/hotels` | Public | Search; supports `destination`, `checkIn`, `checkOut`, `guests`, `minPrice`, `maxPrice`, `minRating` |
-| `GET` | `/api/hotels/:id` | Public | Hotel, rooms and availability; optional `checkIn` and `checkOut` |
+| `GET` | `/api/hotels` | Public | Search; supports `destination`, `checkIn`, `checkOut`, `guests`, `minPrice`, `maxPrice`, `minRating`, `featuredOnly=true` |
+| `GET` | `/api/hotels/:id` | Public | Hotel, rooms and availability; optional `checkIn`, `checkOut` and `guests` |
 | `POST` | `/api/hotels` | Admin | Create hotel |
 | `PATCH` | `/api/hotels/:id` | Admin | Update hotel fields |
 | `DELETE` | `/api/hotels/:id` | Admin | Remove a hotel with no active reservations |
@@ -91,7 +91,7 @@ All request and response bodies use JSON. Authentication uses the `stayease_toke
 | `GET` | `/api/bookings` | Admin | List all bookings |
 | `PATCH` | `/api/bookings/:id/cancel` | Owner or admin | Cancel before check-in and release inventory |
 
-Dates use `YYYY-MM-DD` and stays must be 1–30 nights. A booking request checks room capacity and current inventory on the server. A conflicting booking returns `409`; invalid input returns `400`; unauthenticated and unauthorized calls return `401` and `403`.
+Dates use `YYYY-MM-DD` and stays must be 1–30 nights. Seeded rooms start with their configured inventory available; the seed does not create placeholder reservations or nightly allocations. Re-running the seed updates the same named demo hotels and room types without duplicating them or changing existing reservation records. A booking request checks room capacity and current inventory on the server. A conflicting booking returns `409`; invalid input returns `400`; unauthenticated and unauthorized calls return `401` and `403`.
 
 ## Git and GitHub
 
