@@ -1,14 +1,11 @@
 require('dotenv').config();
 const { loadConfig } = require('./config');
-const { connectDatabase } = require('./db');
-const RoomNight = require('./models/RoomNight');
-const User = require('./models/User');
+const { initializeDatabase } = require('./db');
 const { createApp } = require('./app');
 
 async function start() {
   const config = loadConfig();
-  await connectDatabase(config.MONGODB_URI);
-  await Promise.all([RoomNight.init(), User.init()]);
+  await initializeDatabase(config.MONGODB_URI);
   const app = createApp(config);
   app.listen(config.PORT, () => {
     console.log(`StayEase is available at http://localhost:${config.PORT}`);

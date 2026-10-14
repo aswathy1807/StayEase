@@ -16,6 +16,7 @@ const { errorHandler, notFound } = require('./middleware/errors');
 const { getStay } = require('./utils/dates');
 const { isRoomAvailable } = require('./services/availability');
 const { reserveRoom } = require('./services/reservations');
+const { initializeDatabase } = require('./db');
 
 const hotelInput = z.object({
   name: z.string().trim().min(2).max(140),
@@ -297,8 +298,7 @@ function makeRouter(config) {
   return router;
 }
 
-function createApp(config) {
-  const app = express();
+function createApp(config, app = express()) {
   app.disable('x-powered-by');
   app.use(helmet({
     contentSecurityPolicy: {
@@ -316,6 +316,9 @@ function createApp(config) {
   const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false });
   app.use('/api/auth/login', authLimiter);
   app.use('/api/auth/register', authLimiter);
+  app.use('/api', (req, res, next) => {
+    initializeDatabase(config.MONGODB_URI).then(() => next()).catch(next);
+  });
   app.use('/api', makeRouter(config));
   app.use(express.static(path.join(__dirname, '..', 'public')));
   app.get('*', (req, res, next) => {

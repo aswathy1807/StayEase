@@ -42,6 +42,25 @@ The seed command can optionally create/promote an administrator. Set both `ADMIN
 
 For production, use HTTPS, set `NODE_ENV=production`, use a high-entropy secret and a restricted MongoDB user, and set `CLIENT_ORIGIN` to the exact public origin. Do not commit `.env` or share the production secret.
 
+## Deploy to Vercel
+
+Vercel detects the Express application exported from the repository-root `index.js`. Express serves the files in `public/` and handles `/api/*` requests in the same deployment, so no custom rewrites or persistent server process are needed.
+
+1. Push the repository to GitHub, GitLab, or Bitbucket. Confirm `.env` is not tracked (`git check-ignore .env` should print `.env`).
+2. In Vercel, choose **Add New → Project**, import the repository, and keep the project root set to the repository root. The framework should be detected as Express. Leave the output directory and rewrites unset.
+3. In **Project Settings → Environment Variables**, add these variables for Production (and Preview too if you want preview deployments to connect to the database):
+   - `MONGODB_URI`: your MongoDB Atlas connection string, including the database name.
+   - `JWT_SECRET`: a unique, random value of at least 32 characters.
+   - `NODE_ENV`: `production`.
+   - `CLIENT_ORIGIN`: the exact HTTPS origin used by the deployed site, such as `https://your-project.vercel.app` (no trailing path).
+4. In MongoDB Atlas, ensure the database user has the required database permissions and the Atlas network-access rules permit connections from Vercel. Prefer Vercel static outbound IPs or a private network integration where available; avoid broadly opening database access unless required by your Vercel setup.
+5. If the Atlas database has no hotels yet, configure a local, uncommitted environment to use that same `MONGODB_URI` and run `npm run seed`. Optionally set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in that local environment before seeding to create an administrator.
+6. Deploy the project from Vercel. When the first API request arrives, the function connects to Atlas and initializes the required indexes; warm function instances reuse their Mongoose connection.
+7. Open the deployment URL and verify the page, styles, and browser app load. In the browser console or Network panel, confirm `GET /api/hotels` returns `200`; then register/log in and test a booking and cancellation. Also check `GET /api/auth/me` returns the expected signed-in user after login and `401` after logout.
+8. If configuration changes are needed, update the Vercel environment variables and redeploy. Review the function logs in Vercel if an API request fails.
+
+Vercel has not been run against your account or Atlas database as part of this repository change; follow the steps above to deploy and verify it.
+
 ## Commands
 
 | Command | Purpose |

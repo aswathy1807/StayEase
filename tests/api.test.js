@@ -90,6 +90,8 @@ test('serves the booking UI and restricts hotel management to administrators', a
   const page = await request(app).get('/');
   assert.equal(page.status, 200);
   assert.match(page.text, /StayEase/);
+  assert.equal((await request(app).get('/styles.css')).status, 200);
+  assert.equal((await request(app).get('/app.js')).status, 200);
 
   const guest = await register('regular@example.com');
   const hotelData = {
