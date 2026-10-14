@@ -5,6 +5,7 @@ const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const { createApp } = require('../server/app');
+const { errorHandler } = require('../server/middleware/errors');
 const User = require('../server/models/User');
 const Hotel = require('../server/models/Hotel');
 const Room = require('../server/models/Room');
@@ -91,7 +92,9 @@ test('serves the booking UI and restricts hotel management to administrators', a
   assert.equal(page.status, 200);
   assert.match(page.text, /StayEase/);
   assert.equal((await request(app).get('/styles.css')).status, 200);
-  assert.equal((await request(app).get('/app.js')).status, 200);
+  const frontend = await request(app).get('/app.js');
+  assert.equal(frontend.status, 200);
+  assert.match(frontend.text, /Review your stay/);
 
   const guest = await register('regular@example.com');
   const hotelData = {
@@ -126,9 +129,60 @@ test('serves the booking UI and restricts hotel management to administrators', a
   assert.equal(updatedRoom.body.room.pricePerNight, 195);
 });
 
-test('seeds ten available demo hotels idempotently and searches by dates and destination', async () => {
+test('reports MongoDB selection failures as service unavailable without exposing credentials', () => {
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(statusCode) {
+      this.statusCode = statusCode;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    }
+  };
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    errorHandler({
+      name: 'MongooseServerSelectionError',
+      message: 'Could not connect to mongodb+srv://user:private-password@example.mongodb.net/stayease'
+    }, {}, response, (error) => {
+      throw error;
+    });
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(response.statusCode, 503);
+  assert.match(response.body.error, /MONGODB_URI/);
+  assert.doesNotMatch(response.body.error, /private-password|example\.mongodb\.net/);
+});
+
+test('seeds ten available demo hotels idempotently and searches cities and hotel names', async () => {
   assert.equal(sampleHotels.length, 10);
+  assert.deepEqual(
+    [...new Set(sampleHotels.map((item) => item.location))].sort(),
+    ['Bengaluru', 'Goa', 'Kochi', 'Munnar']
+  );
+  assert.ok(sampleHotels.every((item) => item.image.startsWith('https://') && item.rooms.length > 0));
+  const previousSampleHotel = await Hotel.create({
+    name: 'The Azure House',
+    location: 'Santorini',
+    country: 'Greece',
+    description: 'A previous demo record retained during seed migration.',
+    image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d',
+    rating: 4.9
+  });
+  await Room.create({
+    hotel: previousSampleHotel._id,
+    name: 'Caldera King Suite',
+    capacity: 2,
+    pricePerNight: 420,
+    quantity: 4
+  });
   await seed({ config, connect: false, log: false });
+  assert.equal((await Hotel.findById(previousSampleHotel._id)).location, 'Kochi');
   const firstHotelCount = await Hotel.countDocuments();
   const firstRoomCount = await Room.countDocuments();
   await seed({ config, connect: false, log: false });
@@ -139,14 +193,64 @@ test('seeds ten available demo hotels idempotently and searches by dates and des
   assert.equal(await RoomNight.countDocuments(), 0);
 
   const dateSearch = await request(app).get('/api/hotels').query({
-    destination: 'Italy',
+    destination: 'mUn',
     checkIn: dayOffset(5),
     checkOut: dayOffset(8),
     guests: 2
   });
   assert.equal(dateSearch.status, 200);
-  assert.equal(dateSearch.body.hotels.length, 1);
-  assert.equal(dateSearch.body.hotels[0].name, 'Villa Bellariva');
+  assert.equal(dateSearch.body.hotels.length, 2);
+  assert.ok(dateSearch.body.hotels.every((item) => item.location === 'Munnar'));
+
+  const nameSearch = await request(app).get('/api/hotels').query({
+    destination: 'AZURE',
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 2
+  });
+  assert.equal(nameSearch.status, 200);
+  assert.equal(nameSearch.body.hotels.length, 1);
+  assert.equal(nameSearch.body.hotels[0].name, 'The Azure House');
+  const hotelDetails = await request(app).get(`/api/hotels/${nameSearch.body.hotels[0]._id}`).query({
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 2
+  });
+  assert.equal(hotelDetails.status, 200);
+  assert.ok(hotelDetails.body.rooms.length > 0);
+  assert.ok(hotelDetails.body.rooms.every((item) => item.available));
+
+  const defaultSearch = await request(app).get('/api/hotels').query({
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 2
+  });
+  assert.equal(defaultSearch.status, 200);
+  assert.equal(defaultSearch.body.hotels.length, 11);
+  assert.ok(defaultSearch.body.hotels.some((item) => item.featured === false));
+
+  const guestAndPriceSearch = await request(app).get('/api/hotels').query({
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 5,
+    minPrice: 300,
+    maxPrice: 400,
+    minRating: 4.5
+  });
+  assert.equal(guestAndPriceSearch.status, 200);
+  assert.equal(guestAndPriceSearch.body.hotels.length, 1);
+  assert.equal(guestAndPriceSearch.body.hotels[0].location, 'Goa');
+
+  const ratingSearch = await request(app).get('/api/hotels').query({
+    destination: 'goa',
+    checkIn: dayOffset(5),
+    checkOut: dayOffset(8),
+    guests: 2,
+    minRating: 4.8
+  });
+  assert.equal(ratingSearch.status, 200);
+  assert.equal(ratingSearch.body.hotels.length, 2);
+  assert.ok(ratingSearch.body.hotels.every((item) => item.rating >= 4.8));
 
   const featuredSearch = await request(app).get('/api/hotels').query({
     featuredOnly: true,

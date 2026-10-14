@@ -1,6 +1,6 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const state = { user: null, search: {}, hotels: [], selectedHotel: null, authMode: 'login', featuredOnly: true };
+const state = { user: null, search: {}, hotels: [], selectedHotel: null, pendingRoomId: null, authMode: 'login', featuredOnly: false };
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -153,7 +153,7 @@ async function openHotel(hotelId) {
       return `<article class="room-card">
         <div><h4>${escapeHtml(room.name)}</h4><p>${escapeHtml(room.description || `${room.capacity} guest capacity`)} · Sleeps ${room.capacity}</p><p>${(room.amenities || []).map(escapeHtml).join(' · ')}</p></div>
         <div class="room-price">${formatMoney(room.pricePerNight)}<small>per night · ${room.quantity} room${room.quantity === 1 ? '' : 's'}</small>
-          ${room.available ? `<button class="button button-dark reserve-button" data-room="${escapeHtml(room._id)}" data-price="${room.pricePerNight}" data-nights="${nights}">Book this room</button>` : '<span class="text-button">Unavailable</span>'}
+          ${room.available ? `<button class="button button-dark reserve-button" data-room="${escapeHtml(room._id)}" data-room-name="${escapeHtml(room.name)}" data-price="${room.pricePerNight}" data-nights="${nights}">Review price &amp; book</button>` : '<span class="text-button">Unavailable</span>'}
         </div>
       </article>`;
     }).join('');
@@ -167,14 +167,39 @@ async function openHotel(hotelId) {
         ${rooms.length ? roomCards : '<p class="empty-state">No rooms have been added to this stay yet.</p>'}
         <p class="form-message">Free cancellation before check-in. Payment is demo-only; no payment is collected.</p>
       </div>`;
-    $$('.reserve-button', content).forEach((button) => button.addEventListener('click', () => reserve(button.dataset.room)));
+    $$('.reserve-button', content).forEach((button) => button.addEventListener('click', () => {
+      reviewBooking(button.dataset.room, button.dataset.roomName, Number(button.dataset.price), Number(button.dataset.nights));
+    }));
   } catch (error) {
     content.innerHTML = `<div class="state-card"><p>${escapeHtml(error.message)}</p></div>`;
   }
 }
 
+function reviewBooking(roomId, roomName, pricePerNight, nights) {
+  const content = $('#detail-content');
+  $('#booking-review', content)?.remove();
+  const total = Math.round(pricePerNight * nights * 100) / 100;
+  const review = document.createElement('section');
+  review.id = 'booking-review';
+  review.className = 'room-card';
+  review.innerHTML = `
+    <div><h3>Review your stay</h3>
+      <p>${escapeHtml(roomName)} · ${escapeHtml(state.search.checkIn)} to ${escapeHtml(state.search.checkOut)} · ${nights} night${nights === 1 ? '' : 's'} · ${Number(state.search.guests || 2)} guest${Number(state.search.guests || 2) === 1 ? '' : 's'}</p>
+      <p>${formatMoney(pricePerNight)} per night × ${nights} night${nights === 1 ? '' : 's'}</p>
+      <strong>Total: ${formatMoney(total)}</strong>
+    </div>
+    <div><button class="button button-dark" id="confirm-booking" type="button">Confirm booking</button>
+      <button class="text-button" id="back-to-rooms" type="button">Back to rooms</button>
+    </div>`;
+  content.append(review);
+  $('#confirm-booking', review).addEventListener('click', () => reserve(roomId));
+  $('#back-to-rooms', review).addEventListener('click', () => review.remove());
+  review.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 async function reserve(roomId) {
   if (!state.user) {
+    state.pendingRoomId = roomId;
     $('#detail-dialog').close();
     openAuth('login');
     showToast('Log in or create an account to reserve a room.');
@@ -249,6 +274,11 @@ async function submitAuth(event) {
     $('#auth-dialog').close();
     form.reset();
     showToast(`Welcome${user.name ? `, ${user.name.split(' ')[0]}` : ''}!`);
+    if (state.pendingRoomId) {
+      const pendingRoomId = state.pendingRoomId;
+      state.pendingRoomId = null;
+      await reserve(pendingRoomId);
+    }
   } catch (error) {
     message.textContent = error.message;
   } finally {
@@ -463,6 +493,9 @@ $('#dashboard-nav').addEventListener('click', openDashboard);
 $('#admin-nav').addEventListener('click', openAdmin);
 $('#auth-form').addEventListener('submit', submitAuth);
 $$('.auth-tabs button').forEach((button) => button.addEventListener('click', () => setAuthMode(button.dataset.mode)));
+$('#auth-dialog').addEventListener('close', () => {
+  if (!state.user) state.pendingRoomId = null;
+});
 
 setDefaultDates();
 state.search = collectSearch();
@@ -474,6 +507,6 @@ function clearSearch() {
   $('#min-rating').value = '';
   setDefaultDates();
   state.search = collectSearch();
-  state.featuredOnly = true;
+  state.featuredOnly = false;
   loadHotels();
 }

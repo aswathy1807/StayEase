@@ -9,7 +9,7 @@
     "dev": "node --watch server/index.js",
     "seed": "node server/seed.js",
     "test": "node --test",
-    "check": "node --check index.js && node --check server/index.js && node --check server/app.js && node --check server/db.js && node --check public/app.js"
+    "check": "node --check index.js && node --check server/index.js && node --check server/app.js && node --check server/config.js && node --check server/db.js && node --check server/seed.js && node --check server/middleware/errors.js && node --check public/app.js && node --check tests/api.test.js"
   },
   "engines": {
     "node": ">=20"

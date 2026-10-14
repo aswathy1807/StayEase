@@ -97,6 +97,10 @@ h1 em, h2 em { color: #c4d1b5; font-weight: 500; }
 .amenity-pill { padding: 8px 11px; border: 1px solid var(--line); border-radius: 30px; color: #555d52; font-size: 10px; }
 .room-heading { padding-top: 20px; border-top: 1px solid var(--line); font-family: var(--serif); font-size: 24px; font-weight: 500; }
 .room-card { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.booking-review { align-items: flex-start; margin-top: 18px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.booking-review h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 20px; font-weight: 500; }
+.booking-review p { margin: 4px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.booking-review > div:last-child { display: flex; flex-direction: column; align-items: flex-end; gap: 9px; }
 .room-card h4 { margin: 0 0 5px; font-size: 13px; }
 .room-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .room-price { flex: 0 0 auto; text-align: right; font-size: 14px; font-weight: 700; }

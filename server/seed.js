@@ -7,12 +7,25 @@ const Hotel = require('./models/Hotel');
 const Room = require('./models/Room');
 const RoomNight = require('./models/RoomNight');
 
+const previousLocations = new Map([
+  ['The Azure House', 'Santorini'],
+  ['Maison Lumière', 'Paris'],
+  ['Sora Garden Retreat', 'Kyoto'],
+  ['Casa Maré', 'Lisbon'],
+  ['The Wild Fern', 'Ubud'],
+  ['Northline House', 'Copenhagen'],
+  ['Villa Bellariva', 'Amalfi Coast'],
+  ['Juniper & Stone', 'New York'],
+  ['Riad Safran', 'Marrakech'],
+  ['Pineglass Lodge', 'Banff']
+]);
+
 const sampleHotels = [
   {
     name: 'The Azure House',
-    location: 'Santorini',
-    country: 'Greece',
-    description: 'A serene cliffside retreat with whitewashed suites, sweeping caldera views and warm, attentive hospitality.',
+    location: 'Kochi',
+    country: 'India',
+    description: 'A relaxed waterfront stay in Kochi, with thoughtful rooms and easy access to the city’s historic harbour.',
     image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1400&q=85',
     rating: 4.9,
     amenities: ['Infinity pool', 'Sea view', 'Spa', 'Breakfast', 'Free Wi-Fi'],
@@ -24,9 +37,9 @@ const sampleHotels = [
   },
   {
     name: 'Maison Lumière',
-    location: 'Paris',
-    country: 'France',
-    description: 'An elegant city hideaway moments from the Left Bank, pairing considered design with the ease of a neighborhood home.',
+    location: 'Munnar',
+    country: 'India',
+    description: 'A quiet hill-country retreat surrounded by Munnar’s tea gardens, cool air and winding mountain roads.',
     image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1400&q=85',
     rating: 4.8,
     amenities: ['Restaurant', 'City view', 'Concierge', 'Free Wi-Fi'],
@@ -38,9 +51,9 @@ const sampleHotels = [
   },
   {
     name: 'Sora Garden Retreat',
-    location: 'Kyoto',
-    country: 'Japan',
-    description: 'A tranquil contemporary ryokan framed by a garden, with thoughtful service and easy access to historic Kyoto.',
+    location: 'Munnar',
+    country: 'India',
+    description: 'A garden hideaway in the highlands, made for slow mornings and exploring Munnar’s tea estates.',
     image: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1400&q=85',
     rating: 4.9,
     amenities: ['Garden', 'Onsen', 'Restaurant', 'Free Wi-Fi'],
@@ -52,9 +65,9 @@ const sampleHotels = [
   },
   {
     name: 'Casa Maré',
-    location: 'Lisbon',
-    country: 'Portugal',
-    description: 'A sunlit boutique stay in the heart of Lisbon, where local craft and coastal color meet effortless comfort.',
+    location: 'Bengaluru',
+    country: 'India',
+    description: 'A sunny boutique base in Bengaluru, pairing considered comforts with a convenient city location.',
     image: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1400&q=85',
     rating: 4.7,
     amenities: ['Rooftop terrace', 'Breakfast', 'Bar', 'Free Wi-Fi'],
@@ -66,9 +79,9 @@ const sampleHotels = [
   },
   {
     name: 'The Wild Fern',
-    location: 'Ubud',
-    country: 'Indonesia',
-    description: 'A secluded jungle sanctuary with open-air living, restorative rituals and a pool immersed in tropical greenery.',
+    location: 'Goa',
+    country: 'India',
+    description: 'A leafy coastal escape in Goa with open-air living, restorative comforts and room to unwind.',
     image: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1400&q=85',
     rating: 4.8,
     amenities: ['Jungle pool', 'Spa', 'Yoga', 'Restaurant'],
@@ -80,9 +93,9 @@ const sampleHotels = [
   },
   {
     name: 'Northline House',
-    location: 'Copenhagen',
-    country: 'Denmark',
-    description: 'A quiet design-led base in the city, with natural materials, thoughtful comforts and a lively café downstairs.',
+    location: 'Bengaluru',
+    country: 'India',
+    description: 'A calm, design-led Bengaluru stay with thoughtful comforts and an easy base for exploring the city.',
     image: 'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=1400&q=85',
     rating: 4.6,
     amenities: ['Cafe', 'Bicycles', 'Gym', 'Free Wi-Fi'],
@@ -94,9 +107,9 @@ const sampleHotels = [
   },
   {
     name: 'Villa Bellariva',
-    location: 'Amalfi Coast',
-    country: 'Italy',
-    description: 'A restored coastal villa with lemon-garden terraces, handcrafted interiors and easy access to the villages along the shore.',
+    location: 'Goa',
+    country: 'India',
+    description: 'A restored coastal hideaway in Goa with garden terraces, warm hospitality and easy access to the shore.',
     image: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1400&q=85',
     rating: 4.8,
     amenities: ['Sea view', 'Garden', 'Breakfast', 'Pool'],
@@ -108,9 +121,9 @@ const sampleHotels = [
   },
   {
     name: 'Juniper & Stone',
-    location: 'New York',
-    country: 'United States',
-    description: 'A calm, characterful Manhattan address with neighborhood coffee, considered rooms and the city just outside the door.',
+    location: 'Bengaluru',
+    country: 'India',
+    description: 'A characterful urban stay in Bengaluru, with considered rooms and the city close at hand.',
     image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=85',
     rating: 4.6,
     amenities: ['Restaurant', 'Gym', 'Concierge', 'Free Wi-Fi'],
@@ -122,9 +135,9 @@ const sampleHotels = [
   },
   {
     name: 'Riad Safran',
-    location: 'Marrakech',
-    country: 'Morocco',
-    description: 'A welcoming riad tucked into the medina, centered around a leafy courtyard and a rooftop made for golden-hour tea.',
+    location: 'Kochi',
+    country: 'India',
+    description: 'A welcoming courtyard stay in Kochi, with a leafy garden and easy access to the city’s waterfront neighbourhoods.',
     image: 'https://images.unsplash.com/photo-1539020140153-e479b8c22e70?auto=format&fit=crop&w=1400&q=85',
     rating: 4.9,
     amenities: ['Courtyard pool', 'Rooftop', 'Hammam', 'Breakfast'],
@@ -136,9 +149,9 @@ const sampleHotels = [
   },
   {
     name: 'Pineglass Lodge',
-    location: 'Banff',
-    country: 'Canada',
-    description: 'A warm mountain lodge close to alpine trails, with fireside evenings, crisp air and wide-open views of the Rockies.',
+    location: 'Goa',
+    country: 'India',
+    description: 'A laid-back coastal lodge in Goa, close to sandy beaches, local food and quiet evenings.',
     image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1400&q=85',
     rating: 4.7,
     amenities: ['Mountain view', 'Hot tub', 'Restaurant', 'Free parking'],
@@ -159,11 +172,15 @@ async function seed({ config = loadConfig(), connect = true, log = true } = {}) 
     await Promise.all([RoomNight.init(), User.init()]);
     for (const item of sampleHotels) {
       const { rooms, ...hotelData } = item;
-      const hotel = await Hotel.findOneAndUpdate(
-        { name: hotelData.name, location: hotelData.location },
-        { $set: hotelData },
-        { new: true, upsert: true, runValidators: true }
-      );
+      const identity = { name: hotelData.name, location: hotelData.location };
+      let existingHotel = await Hotel.findOne(identity);
+      const previousLocation = previousLocations.get(hotelData.name);
+      if (!existingHotel && previousLocation) {
+        existingHotel = await Hotel.findOne({ name: hotelData.name, location: previousLocation });
+      }
+      const hotel = existingHotel
+        ? await Hotel.findByIdAndUpdate(existingHotel._id, { $set: hotelData }, { new: true, runValidators: true })
+        : await Hotel.findOneAndUpdate(identity, { $set: hotelData }, { new: true, upsert: true, runValidators: true });
       for (const roomData of rooms) {
         await Room.findOneAndUpdate(
           { hotel: hotel._id, name: roomData.name },

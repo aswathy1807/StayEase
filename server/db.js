@@ -11,7 +11,10 @@ async function connectDatabase(uri) {
   if (mongoose.connection.readyState === 1) return mongoose.connection;
   if (!uri) throw new Error('MONGODB_URI is required to connect to the database');
   if (!connectionPromise) {
-    connectionPromise = mongoose.connect(uri)
+    connectionPromise = mongoose.connect(uri, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 10000
+    })
       .then(() => mongoose.connection)
       .finally(() => {
         connectionPromise = null;

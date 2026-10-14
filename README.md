@@ -7,10 +7,10 @@ https://stay-ease-zeta.vercel.app/
 
 ## Features
 
-- Browse featured hotels and search by destination.
+- Browse all seeded hotels by default and search by city or hotel name, including case-insensitive partial matches.
 - Search stays using check-in/check-out dates and guest count.
 - Filter results by price and rating.
-- View hotel and room information, including nightly prices and capacity.
+- View hotel and room information, review the stay total, then confirm a booking.
 - User authentication and protected routes.
 - Reservation and availability management.
 - Booking history and cancellation workflows.
@@ -55,6 +55,7 @@ hotel-booking-app/
 │   └── seed.js
 ├── tests/
 │   └── api.test.js
+├── index.js
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -124,13 +125,13 @@ For production, avoid broad IP access rules when possible. Use the narrowest net
 
 ### 5. Run database seed data (if needed)
 
-If the project includes demo records in `server/seed.js`, and your database is configured, run:
+When your database is configured, seed the ten demo hotels and their rooms with:
 
 ```bash
 npm run seed
 ```
 
-Seed data is not automatically copied to a deployed database just because the application is deployed. Run the seed script deliberately against the intended database. Confirm the seed script is safe to rerun before running it repeatedly.
+The sample inventory covers Kochi, Munnar, Bengaluru and Goa. The seed is safe to rerun: it updates the same sample hotel records (including migrating the previous demo locations) and upserts their room types. Room availability is calculated from each room's inventory and active nightly reservations; the seed does not create placeholder reservations. Seed data is not automatically copied to a deployed database just because the application is deployed. Run the seed deliberately against the intended database.
 
 ### 6. Start the development server
 
@@ -173,10 +174,11 @@ npm test
    - `JWT_SECRET`
    - `NODE_ENV=production`
    - `CLIENT_ORIGIN` set to the deployed site's actual origin, such as `https://your-project.vercel.app`
-   - `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if required by your setup
+   - `ADMIN_EMAIL` and `ADMIN_PASSWORD` only if seeding an administrator
 5. Deploy, then review the Vercel build and runtime logs.
 6. Test the homepage, hotel search, authentication, availability, booking, and cancellation flows on the deployed URL.
-7. If environment variables change, redeploy so the new values are picked up.
+7. If the API reports a database connection error, confirm `MONGODB_URI` is a valid Atlas connection string with the intended database name, the Atlas database user credentials are correct and URL-encoded, and the Atlas Network Access rules permit connections from Vercel. Vercel deployment logs report the underlying error without returning connection details to the browser.
+8. If environment variables change, redeploy so the new values are picked up.
 
 
 ## Security
@@ -193,4 +195,3 @@ npm test
 2. Make and test the change locally.
 3. Run `npm run check` and `npm test`.
 4. Open a pull request describing what changed and how it was tested.
-
