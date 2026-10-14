@@ -2,7 +2,8 @@
 
 StayEase is a full-stack hotel booking web application built with **Node.js, Express, MongoDB, and Mongoose**. It provides a simple way for users to discover stays, search by destination and travel dates, review room options, and manage reservations.
 
-> **Project status:** This is an educational project under active development. Some features may require additional configuration or testing before production use.
+# project live link :
+https://stay-ease-zeta.vercel.app/
 
 ## Features
 
@@ -177,30 +178,6 @@ npm test
 6. Test the homepage, hotel search, authentication, availability, booking, and cancellation flows on the deployed URL.
 7. If environment variables change, redeploy so the new values are picked up.
 
-### Deployment notes
-
-- A successful frontend deployment does not by itself prove that the backend or database connection works. Test the API and booking flows after deployment.
-- MongoDB Atlas must permit network connections from the deployed backend. Keep access as restricted as your host and deployment plan allow.
-- Run the seed script separately against the production database only when you intentionally want demo data there.
-- Vercel functions have serverless execution constraints. If a feature requires a persistent process or unsupported behavior, host the Express backend on a service suited to that runtime and point the frontend to it.
-
-## Troubleshooting
-
-### The site loads but hotels do not appear
-
-- Check Vercel runtime logs for the failing API request.
-- Verify `MONGODB_URI` is correct and the database user password matches it.
-- Confirm the Atlas network access rules allow the deployed backend to connect.
-- Check that the intended database contains hotel, room, and availability data. Run the seed script if appropriate.
-- Confirm the frontend's API URL and backend route paths work in production.
-
-### The server says an environment variable is missing
-
-Check that every required variable from `server/config.js` is configured in `.env` locally and in Vercel's Environment Variables settings for the relevant deployment environment.
-
-### Authentication or CORS fails after deployment
-
-Ensure `CLIENT_ORIGIN` is the deployed site's exact origin (`https://...`) without a page path or trailing slash, and review the application's cookie and CORS settings for HTTPS/serverless hosting.
 
 ## Security
 
@@ -217,6 +194,3 @@ Ensure `CLIENT_ORIGIN` is the deployed site's exact origin (`https://...`) witho
 3. Run `npm run check` and `npm test`.
 4. Open a pull request describing what changed and how it was tested.
 
-## License
-
-No license is specified in this repository yet. Add a `LICENSE` file before distributing the project with explicit reuse permissions.
