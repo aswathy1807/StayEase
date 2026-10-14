@@ -91,6 +91,9 @@ test('serves the booking UI and restricts hotel management to administrators', a
   const page = await request(app).get('/');
   assert.equal(page.status, 200);
   assert.match(page.text, /StayEase/);
+  assert.match(page.text, /data-destination="Kochi"/);
+  assert.match(page.text, /id="sort-order"/);
+  assert.match(page.text, /id="amenity-filter"/);
   assert.equal((await request(app).get('/styles.css')).status, 200);
   const frontend = await request(app).get('/app.js');
   assert.equal(frontend.status, 200);

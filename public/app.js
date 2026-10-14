@@ -1,6 +1,7 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const state = { user: null, search: {}, hotels: [], selectedHotel: null, pendingRoomId: null, authMode: 'login', featuredOnly: false };
+const FALLBACK_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520"><rect width="800" height="520" fill="#e7e9df"/><path d="M0 390 190 220l130 115 150-170 330 270v85H0Z" fill="#c8d0be"/><circle cx="620" cy="132" r="54" fill="#f6f1df"/></svg>')}`;
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -33,6 +34,17 @@ function showToast(message, isError = false) {
 
 function setLoading(container, message = 'Loading…') {
   container.innerHTML = `<div class="state-card"><span class="spinner"></span><p>${escapeHtml(message)}</p></div>`;
+}
+
+function attachImageFallbacks(root = document) {
+  $$('img', root).forEach((image) => {
+    if (image.dataset.fallbackReady) return;
+    image.dataset.fallbackReady = 'true';
+    image.addEventListener('error', () => {
+      image.src = FALLBACK_IMAGE;
+      image.classList.add('image-fallback');
+    }, { once: true });
+  });
 }
 
 function formatMoney(value) {
@@ -80,8 +92,10 @@ function hotelQuery(extra = {}) {
   if (state.search.checkOut) query.set('checkOut', state.search.checkOut);
   if (state.search.guests) query.set('guests', state.search.guests);
   if (state.featuredOnly) query.set('featuredOnly', 'true');
+  const minPrice = $('#min-price').value;
   const maxPrice = $('#max-price').value;
   const minRating = $('#min-rating').value;
+  if (minPrice) query.set('minPrice', minPrice);
   if (maxPrice) query.set('maxPrice', maxPrice);
   if (minRating) query.set('minRating', minRating);
   Object.entries(extra).forEach(([key, value]) => query.set(key, value));
@@ -90,42 +104,65 @@ function hotelQuery(extra = {}) {
 
 async function loadHotels() {
   const grid = $('#hotel-grid');
-  setLoading(grid, 'Finding your next favourite place…');
+  const minPrice = Number($('#min-price').value || 0);
+  const maxPrice = Number($('#max-price').value || 0);
+  if (minPrice && maxPrice && minPrice > maxPrice) {
+    grid.innerHTML = '<div class="state-card"><p>Your minimum nightly price is higher than your maximum. Adjust the price range to continue.</p></div>';
+    $('#results-count').textContent = 'Adjust your price range';
+    return;
+  }
+  $('#results-count').textContent = 'Finding stays that feel like you…';
+  grid.innerHTML = Array.from({ length: 6 }, () => `
+    <article class="hotel-skeleton" aria-hidden="true">
+      <div class="skeleton-photo shimmer"></div>
+      <div class="skeleton-line shimmer"></div><div class="skeleton-line short shimmer"></div>
+    </article>`).join('');
   try {
     const { hotels } = await api(`/hotels?${hotelQuery()}`);
     state.hotels = hotels;
     renderHotels();
-    $('#results-title').textContent = state.search.destination ? `Stays in ${state.search.destination}` : 'Places to fall for';
+    $('#results-title').textContent = state.search.destination ? `Stays in ${state.search.destination}` : 'Stays with a little soul.';
   } catch (error) {
     grid.innerHTML = `<div class="state-card"><p>${escapeHtml(error.message)}</p><button class="button button-dark" id="retry-hotels">Try again</button></div>`;
+    $('#results-count').textContent = 'We couldn’t load the stays just now.';
     $('#retry-hotels')?.addEventListener('click', loadHotels);
   }
 }
 
 function renderHotels() {
   const grid = $('#hotel-grid');
-  if (!state.hotels.length) {
+  const amenity = $('#amenity-filter').value.toLowerCase();
+  const hotels = state.hotels.filter((hotel) => !amenity
+    || (hotel.amenities || []).some((item) => item.toLowerCase().includes(amenity)));
+  const sortOrder = $('#sort-order').value;
+  if (sortOrder === 'price-low') hotels.sort((a, b) => a.startingPrice - b.startingPrice);
+  if (sortOrder === 'price-high') hotels.sort((a, b) => b.startingPrice - a.startingPrice);
+  if (sortOrder === 'rating') hotels.sort((a, b) => b.rating - a.rating);
+  if (!hotels.length) {
     grid.innerHTML = '<div class="state-card"><p>No stays match those dates and filters. Try another destination or clear your search.</p><button class="button button-dark clear-search-results" type="button">Clear search</button></div>';
+    $('#results-count').textContent = 'No stays found';
     $('.clear-search-results', grid).addEventListener('click', clearSearch);
     return;
   }
-  grid.innerHTML = state.hotels.map((hotel) => `
+  $('#results-count').textContent = `${hotels.length} ${hotels.length === 1 ? 'stay' : 'stays'} to fall for`;
+  grid.innerHTML = hotels.map((hotel) => `
     <article class="hotel-card" data-hotel="${escapeHtml(hotel._id)}">
       <div class="hotel-photo-wrap">
         <img class="hotel-photo" src="${escapeHtml(hotel.image)}" alt="${escapeHtml(hotel.name)}" loading="lazy">
         ${hotel.featured ? '<span class="photo-tag">StayEase pick</span>' : ''}
-        <span class="rating">★ ${Number(hotel.rating).toFixed(1)}</span>
+        <span class="rating"><span aria-hidden="true">★</span> ${Number(hotel.rating).toFixed(1)}</span>
       </div>
       <div class="hotel-info">
         <div>
           <div class="hotel-location">${escapeHtml(hotel.location)}, ${escapeHtml(hotel.country)}</div>
           <h3 class="hotel-name">${escapeHtml(hotel.name)}</h3>
           <div class="hotel-amenities">${(hotel.amenities || []).slice(0, 3).map((amenity) => `<span>${escapeHtml(amenity)}</span>`).join('')}</div>
-          <button class="button button-dark hotel-card-action" type="button">View details / select room</button>
         </div>
-        <div class="hotel-price">${formatMoney(hotel.startingPrice)}<small>per night</small></div>
+        <div class="hotel-price"><small>From</small>${formatMoney(hotel.startingPrice)}<small>per night</small></div>
       </div>
+      <div class="hotel-card-footer"><span>Thoughtfully chosen for your next escape</span><button class="button button-dark hotel-card-action" type="button">View rooms <span aria-hidden="true">↗</span></button></div>
     </article>`).join('');
+  attachImageFallbacks(grid);
   $$('.hotel-card', grid).forEach((card) => {
     card.addEventListener('click', () => openHotel(card.dataset.hotel));
     $('.hotel-card-action', card).addEventListener('click', (event) => {
@@ -167,6 +204,7 @@ async function openHotel(hotelId) {
         ${rooms.length ? roomCards : '<p class="empty-state">No rooms have been added to this stay yet.</p>'}
         <p class="form-message">Free cancellation before check-in. Payment is demo-only; no payment is collected.</p>
       </div>`;
+    attachImageFallbacks(content);
     $$('.reserve-button', content).forEach((button) => button.addEventListener('click', () => {
       reviewBooking(button.dataset.room, button.dataset.roomName, Number(button.dataset.price), Number(button.dataset.nights));
     }));
@@ -485,8 +523,15 @@ $('#search-form').elements.checkIn.addEventListener('change', (event) => {
   }
 });
 $('#max-price').addEventListener('change', loadHotels);
+$('#min-price').addEventListener('change', loadHotels);
 $('#min-rating').addEventListener('change', loadHotels);
+$('#amenity-filter').addEventListener('change', renderHotels);
+$('#sort-order').addEventListener('change', renderHotels);
 $('#clear-search').addEventListener('click', clearSearch);
+$$('.destination-card').forEach((card) => card.addEventListener('click', () => {
+  $('#search-form').elements.destination.value = card.dataset.destination;
+  $('#search-form').requestSubmit();
+}));
 $('#auth-nav').addEventListener('click', () => openAuth('login'));
 $('#logout-nav').addEventListener('click', logout);
 $('#dashboard-nav').addEventListener('click', openDashboard);
@@ -499,12 +544,16 @@ $('#auth-dialog').addEventListener('close', () => {
 
 setDefaultDates();
 state.search = collectSearch();
+attachImageFallbacks();
 refreshSession().finally(loadHotels);
 
 function clearSearch() {
   $('#search-form').reset();
+  $('#min-price').value = '';
   $('#max-price').value = '';
   $('#min-rating').value = '';
+  $('#amenity-filter').value = '';
+  $('#sort-order').value = 'recommended';
   setDefaultDates();
   state.search = collectSearch();
   state.featuredOnly = false;
